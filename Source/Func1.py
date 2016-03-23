@@ -5,10 +5,11 @@ import pickle
 myConnection = sqlite3.connect('../Data/database.sqlite')
 myCursor = myConnection.cursor()
 
-myCursor.execute('SELECT DISTINCT author FROM May2015 LIMIT 100')
+
+myCursor.execute('SELECT author FROM may2015 GROUP BY author HAVING COUNT(author) > 10')
 listAuthors = myCursor.fetchall()
 
-myCursor.execute('SELECT DISTINCT subreddit FROM May2015')
+myCursor.execute('SELECT subreddit FROM may2015 GROUP BY subreddit HAVING COUNT(subreddit) > 500')
 listSubreddits = myCursor.fetchall()
 
 dictAuthorsToIndex = {}
@@ -21,8 +22,8 @@ numAuthors = len(listAuthors)
 numSubreddits = len(listSubreddits)
 
 for index in range(numAuthors):
-    dictIndexToAuthors[index] = listAuthors[index]
-    dictAuthorsToIndex[listAuthors[index]] = index
+    dictIndexToAuthors[index] = listAuthors[index][0]
+    dictAuthorsToIndex[listAuthors[index][0]] = index
 
 for index in range(numSubreddits):
     dictIndexToSubreddits[index] = listSubreddits[index][0]
@@ -30,18 +31,37 @@ for index in range(numSubreddits):
 
 f = open('../Data/table', 'w')
 
-for outerIndex in range(numAuthors):
-    innerReturnList = [0] * numSubreddits
-    for row in myCursor.execute('SELECT DISTINCT subreddit FROM May2015 where author=(?) LIMIT 1000', dictIndexToAuthors[outerIndex]):
-        for subreddit in row:
-            if subreddit in dictSubredditsToIndex:
-                innerReturnList[dictSubredditsToIndex[subreddit]] = 1
-    for x in innerReturnList:
-        f.write(str(x))
-    f.write('\n')
+f.write(str(numAuthors) + ',' + str(numSubreddits) + '\n')
 
+for outerIndex in range(numSubreddits):
+    flag = False
+    for row in myCursor.execute('SELECT DISTINCT author FROM May2015 where subreddit=(?)', (dictIndexToSubreddits[outerIndex],)):
+        for author in row:
+            if author in dictAuthorsToIndex:
+                if(flag):
+                    f.write(',' + str(dictAuthorsToIndex[author]))
+                else:
+                    f.write(str(dictAuthorsToIndex[author]))
+                    flag = True
+    f.write('\n')
 f.close()
 
 f = open('../Data/subredditDict', 'w')
 pickle.dump(dictIndexToSubreddits, f)
 f.close()
+
+
+##myCursor.execute('SELECT avg(count) FROM(SELECT COUNT(author) AS count FROM may2015 GROUP BY author)')
+##print(myCursor.fetchall())
+
+##myCursor.execute('SELECT avg(count) FROM(SELECT COUNT(subreddit) AS count FROM may2015 GROUP BY subreddit)')
+##print(myCursor.fetchall())
+
+##myCursor.execute('SELECT subreddit, author FROM may2015 GROUP BY author LIMIT 50')
+##print(myCursor.fetchall())
+
+##myCursor.execute('SELECT DISTINCT author FROM May2015 LIMIT 100')
+##listAuthors = myCursor.fetchall()
+
+##myCursor.execute('SELECT DISTINCT subreddit FROM May2015')
+##listSubreddits = myCursor.fetchall()
